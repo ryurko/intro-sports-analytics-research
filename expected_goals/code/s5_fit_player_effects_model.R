@@ -84,32 +84,26 @@ lmer_cv_preds %>%
 xg_lmer <- glmer(is_goal ~ shot_distance + (1|shooting_player) + (1|goalie_name), 
                  data = model_nhl_shot_data, family = "binomial")
 
-xg_coef_results <- coef(xg_lmer)
-xg_coef_results$shooting_player %>%
+# Extract the varying intercepts for each player
+xg_player_results <- ranef(xg_lmer)
+
+# Create the shooting table:
+shooting_re_results <- xg_player_results$shooting_player %>%
   as_tibble() %>%
-  mutate(player = rownames(xg_coef_results$shooting_player),
-         player_intercept = `(Intercept)` - xg_lmer@beta[1]) %>%
-  arrange(desc(player_intercept))
+  mutate(player = rownames(xg_player_results$shooting_player),
+         type = "shooter") %>%
+  rename(intercept = `(Intercept)`)
 
-ranef(xg_lmer)
-
-library(merTools)
-player_effects <- REsim(xg_lmer)
-plotREsim(player_effects)
-
-player_effects %>%
+# Create the goalie table:
+goalie_re_results <- xg_player_results$goalie_name %>%
   as_tibble() %>%
-  group_by(groupFctr) %>%
-  arrange(desc(mean)) %>%
-  slice(1:5, (n() - 4):n()) %>%
-  ggplot(aes(x = reorder(groupID, mean))) +
-  geom_point(aes(y = mean)) +
-  geom_errorbar(aes(ymin = mean - 2 * sd,
-                    ymax = mean + 2 * sd)) +
-  facet_wrap(~groupFctr, ncol = 1, scales = "free_y") +
-  geom_vline(xintercept = 0, linetype = "dashed",
-             color = "red") +
-  coord_flip() +
-  theme_bw()
+  mutate(player = rownames(xg_player_results$goalie_name),
+         type = "goalie") %>%
+  rename(intercept = `(Intercept)`)
+
+
+# Compare to the expected goals residual ranks ----------------------------
+
+
 
 
