@@ -21,7 +21,7 @@ model_nhl_shot_data %>%
   geom_histogram() + 
   labs(x = "Shot distance (in feet)",
        y = "Count", fill = "Shot outcome") +
-  ggthemes::scale_fill_colorblind(labels = c("Save/Miss", "Goal")) +
+  ggthemes::scale_fill_colorblind(labels = c("Save", "Goal")) +
   theme_bw() +
   theme(legend.position = "bottom")
 
@@ -31,7 +31,7 @@ model_nhl_shot_data %>%
   geom_histogram() + 
   labs(x = "Shot angle (in degrees)",
        y = "Count", fill = "Shot outcome") +
-  ggthemes::scale_fill_colorblind(labels = c("Save/Miss", "Goal")) +
+  ggthemes::scale_fill_colorblind(labels = c("Save", "Goal")) +
   theme_bw() +
   theme(legend.position = "bottom")
 

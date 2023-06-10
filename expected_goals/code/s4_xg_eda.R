@@ -1,0 +1,1 @@
+# PURPOSE: Generate some basic expected goals analysis without fitting any models

@@ -12,6 +12,8 @@ nhl_shot_data <-
 model_nhl_shot_data <- nhl_shot_data %>%
   # Remove shots where distance is missing
   filter(!is.na(shot_distance), 
+         # Remove missed shots where goalie is missing:
+         !is.na(event_goalie_name),
          # Only consider even-strength
          strength_code == "EV",
          # Remove empty-net
@@ -22,7 +24,8 @@ model_nhl_shot_data <- nhl_shot_data %>%
          goalie_team = ifelse(event_team == home_name,
                               away_name, home_name)) %>%
   # Just grab a subset of columns:
-  dplyr::select(event_player_1_name, event_team, event_goalie_name,
+  dplyr::select(game_id, period,
+                event_player_1_name, event_team, event_goalie_name,
                 goalie_team, x_fixed, y_fixed, shot_distance,
                 shot_angle, is_goal) %>%
   rename(shooting_player = event_player_1_name,
