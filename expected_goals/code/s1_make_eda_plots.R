@@ -16,7 +16,7 @@ model_nhl_shot_data %>%
   theme_bw()
 
 # Distance histogram by outcome
-model_nhl_shot_data %>%
+shot_dist_plot <- model_nhl_shot_data %>%
   ggplot(aes(x = shot_distance, fill = as.factor(is_goal))) +
   geom_histogram() + 
   labs(x = "Shot distance (in feet)",
@@ -24,6 +24,9 @@ model_nhl_shot_data %>%
   ggthemes::scale_fill_colorblind(labels = c("Save", "Goal")) +
   theme_bw() +
   theme(legend.position = "bottom")
+
+cowplot::save_plot("expected_goals/figures/distance_hist.png",
+                   shot_dist_plot)
 
 # Angle histogram by outcome
 model_nhl_shot_data %>%

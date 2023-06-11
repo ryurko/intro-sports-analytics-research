@@ -42,7 +42,7 @@ summary(init_logit)
 model_nhl_shot_data <- model_nhl_shot_data %>%
   mutate(xg = init_logit$fitted.values)
 
-model_nhl_shot_data %>%
+shot_dist_prob_plot <- model_nhl_shot_data %>%
   ggplot(aes(x = shot_distance)) +
   geom_line(aes(y = xg), 
             color = "blue") +
@@ -50,8 +50,11 @@ model_nhl_shot_data %>%
              size = .5, alpha = 0.15,
              color = "darkorange") +
   labs(x = "Shot distance (in feet)",
-       y = "Expected goals / predicted probability of goal") +
+       y = "Predicted probability of goal (aka expected goals)") +
   theme_bw()
+
+cowplot::save_plot("expected_goals/figures/init_dist_prob.png",
+                   shot_dist_prob_plot)
 
 
 # Generate calibration plot -----------------------------------------------
