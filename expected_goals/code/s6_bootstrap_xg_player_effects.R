@@ -79,5 +79,54 @@ bootstrap_player_effects <-
             
           })
 
-  
+# Save these results to have:
+write_csv(bootstrap_player_effects,
+          "expected_goals/data/boot_xg_player_effects.csv")
+
+# Compute summaries of sims and view distributions ------------------------
+
+player_sim_summary <- bootstrap_player_effects %>%
+  group_by(player, type) %>%
+  summarize(med_intercept = median(intercept, na.rm = TRUE),
+            n_sims = n(),
+            .groups = "drop")
+
+top_shooters <- player_sim_summary %>%
+  filter(type == "shooter") %>%
+  slice_max(order_by = med_intercept, n = 10) %>%
+  mutate(player = fct_reorder(player, med_intercept))
+
+best_goalies <- player_sim_summary %>%
+  filter(type == "goalie") %>%
+  slice_min(order_by = med_intercept, n = 10) %>%
+  mutate(player = fct_reorder(player, med_intercept))
+
+# View distribution of player effects for top players:
+library(ggridges)
+
+# First for shooters:
+bootstrap_player_effects %>%
+  filter(player %in% top_shooters$player) %>%
+  mutate(player = factor(player, levels = levels(top_shooters$player))) %>%
+  ggplot(aes(x = intercept, y = player)) +
+  geom_density_ridges(quantile_lines = TRUE,
+                      quantiles = 0.5,
+                      rel_min_height = 0.01) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
+  labs(x = "Player intercept", y = "Player name") +
+  theme_bw()
+
+# Next for goalies:
+bootstrap_player_effects %>%
+  filter(player %in% best_goalies$player) %>%
+  mutate(player = factor(player, levels = levels(best_goalies$player))) %>%
+  ggplot(aes(x = intercept, y = player)) +
+  geom_density_ridges(quantile_lines = TRUE,
+                      quantiles = 0.5,
+                      rel_min_height = 0.01) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
+  labs(x = "Player intercept", y = "Player name") +
+  theme_bw()
+
+
   
