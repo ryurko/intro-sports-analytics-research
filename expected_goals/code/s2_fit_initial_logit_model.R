@@ -57,32 +57,3 @@ cowplot::save_plot("expected_goals/figures/init_dist_prob.png",
                    shot_dist_prob_plot)
 
 
-# Generate calibration plot -----------------------------------------------
-
-model_nhl_shot_data %>%
-  mutate(bin_pred_prob = round(xg / 0.05) * .05) %>%
-  # Group by bin_pred_prob:
-  group_by(bin_pred_prob) %>%
-  # Calculate the calibration results:
-  summarize(n_shots = n(),
-            bin_actual_prob = mean(is_goal),
-            bin_se = sqrt((bin_actual_prob * (1 - bin_actual_prob)) / n_shots),
-            .groups = "drop") %>%
-  mutate(bin_upper = pmin(bin_actual_prob + 2 * bin_se, 1),
-         bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0)) %>%
-  ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
-  geom_point() +
-  #geom_point(aes(size = n_shots)) +
-  geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + 
-  geom_smooth(method = "loess", se = FALSE) +
-  geom_abline(slope = 1, intercept = 0, 
-              color = "black", linetype = "dashed") +
-  coord_equal() + 
-  scale_x_continuous(limits = c(0,1)) + 
-  scale_y_continuous(limits = c(0,1)) + 
-  labs(size = "Number of shot attempts",
-       x = "Estimated goal probability",
-       y = "Observed goal frequency") + 
-  theme_bw() +
-  theme(legend.position = "bottom")
-

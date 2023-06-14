@@ -14,9 +14,16 @@ set.seed(1991)
 game_fold_table <- tibble(game_id = unique(model_nhl_shot_data$game_id)) %>%
   mutate(game_fold = sample(rep(1:5, length.out = n()), n()))
 
+table(game_fold_table$game_fold)
+#   1   2   3   4   5 
+# 281 280 280 280 280 
+
 model_nhl_shot_data <- model_nhl_shot_data %>% 
   left_join(game_fold_table, by = "game_id")
 
+table(model_nhl_shot_data$game_fold)
+#     1     2     3     4     5 
+# 14418 14052 14272 14098 14249 
 
 # Generate out-of-sample predictions --------------------------------------
 
@@ -44,7 +51,7 @@ logit_cv_preds <-
 
 # View out-of-sample calibration ------------------------------------------
 
-logit_cv_preds %>%
+calibration_plot <- logit_cv_preds %>%
   mutate(bin_pred_prob = round(test_pred_probs / 0.05) * .05) %>%
   # Group by bin_pred_prob:
   group_by(bin_pred_prob) %>%
@@ -59,7 +66,7 @@ logit_cv_preds %>%
   geom_point() +
   #geom_point(aes(size = n_shots)) +
   geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + 
-  geom_smooth(method = "loess", se = FALSE) +
+  #geom_smooth(method = "loess", se = FALSE) +
   geom_abline(slope = 1, intercept = 0, 
               color = "black", linetype = "dashed") +
   coord_equal() + 
@@ -71,3 +78,5 @@ logit_cv_preds %>%
   theme_bw() +
   theme(legend.position = "bottom")
 
+cowplot::save_plot("expected_goals/figures/calibration_plot.png",
+                   calibration_plot)
