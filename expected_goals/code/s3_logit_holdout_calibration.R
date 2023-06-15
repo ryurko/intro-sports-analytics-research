@@ -64,7 +64,7 @@ calibration_plot <- logit_cv_preds %>%
          bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0)) %>%
   ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
   geom_point() +
-  #geom_point(aes(size = n_shots)) +
+  geom_point(aes(size = n_shots)) +
   geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + 
   #geom_smooth(method = "loess", se = FALSE) +
   geom_abline(slope = 1, intercept = 0, 
@@ -79,4 +79,4 @@ calibration_plot <- logit_cv_preds %>%
   theme(legend.position = "bottom")
 
 cowplot::save_plot("expected_goals/figures/calibration_plot.png",
-                   calibration_plot)
+                   calibration_plot, base_height = 6)

@@ -79,6 +79,9 @@ bootstrap_player_effects <-
             
           })
 
+bootstrap_player_effects <- bootstrap_player_effects %>%
+  mutate(player = str_replace(player, "\\.", " "))
+
 # Save these results to have:
 write_csv(bootstrap_player_effects,
           "expected_goals/data/boot_xg_player_effects.csv")
@@ -105,7 +108,7 @@ best_goalies <- player_sim_summary %>%
 library(ggridges)
 
 # First for shooters:
-bootstrap_player_effects %>%
+shooting_player_distr_plot <- bootstrap_player_effects %>%
   filter(player %in% top_shooters$player) %>%
   mutate(player = factor(player, levels = levels(top_shooters$player))) %>%
   ggplot(aes(x = intercept, y = player)) +
@@ -113,11 +116,14 @@ bootstrap_player_effects %>%
                       quantiles = 0.5,
                       rel_min_height = 0.01) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
-  labs(x = "Player intercept", y = "Player name") +
+  labs(x = "Shooting player varying intercept", y = "Player name") +
   theme_bw()
 
+cowplot::save_plot("expected_goals/figures/shooting_player_distr_plot.png",
+                   shooting_player_distr_plot, base_height = 6)
+
 # Next for goalies:
-bootstrap_player_effects %>%
+goalie_distr_plot <- bootstrap_player_effects %>%
   filter(player %in% best_goalies$player) %>%
   mutate(player = factor(player, levels = levels(best_goalies$player))) %>%
   ggplot(aes(x = intercept, y = player)) +
@@ -125,8 +131,10 @@ bootstrap_player_effects %>%
                       quantiles = 0.5,
                       rel_min_height = 0.01) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
-  labs(x = "Player intercept", y = "Player name") +
+  labs(x = "Goalie varying intercept", y = "Player name") +
   theme_bw()
 
+cowplot::save_plot("expected_goals/figures/goalie_distr_plot.png",
+                   goalie_distr_plot, base_height = 6)
 
   
