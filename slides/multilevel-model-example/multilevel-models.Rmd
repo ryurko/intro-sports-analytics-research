@@ -1,0 +1,538 @@
+---
+title: "Multilevel models"
+subtitle: "An introduction with expected goals"  
+author: 
+  - "Professor Yurko"
+date: 'July 17th, 2023'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#c41230",
+  secondary_color = "#0277BD",
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+## Expected Goals
+
+__Expected Goals__ (aka _xG_) represents quality of a shot attempt across variety of sports
+
+- Used in hockey, soccer, basketball, lacross, etc.
+
+- Motivation: likelihood of a successful shot attempt is dependent on variety of information such as distance, angle, defense
+
+- i.e., _not all shots are created equal_
+
+--
+
+Consider random variable $S$, where $S = 1$ is successful shot attempt (0 is not)
+
+Expected value (EV) for a shot attempt worth $V$ points is,
+
+$$EV = V \cdot Pr(S = 1 | \mathbf{x})$$
+#### We need a reliable estimate for goal scoring probability $\widehat{Pr}(S = 1| x)$
+
+--
+
+_So what should we do?_
+
+---
+
+## NHL shot data example
+
+Used [hockeyR package](https://hockeyr.netlify.app/) to construct dataset of shots [available here](https://data.scorenetwork.org/hockey/nhl-shots.html)
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+model_nhl_shot_data <- read_csv("expected_goals/data/model_nhl_shot_data.csv")
+model_nhl_shot_data
+```
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s0_get_nhl_shot_data.R) to view pre-processing code
+
+---
+
+## Logistic regression
+
+Use logistic regression to estimate goal probability _given_ shot distance:
+
+$$\log \Big[ \frac{Pr(S = 1 |\ distance)}{Pr(S = 0 |\ distance)} \Big] = \beta_0 + \beta_1 \cdot distance$$
+
+--
+
+```{r, echo = FALSE}
+model_nhl_shot_data %>%
+  ggplot(aes(x = shot_distance, fill = as.factor(is_goal))) +
+  geom_histogram() + 
+  labs(x = "Shot distance (in feet)",
+       y = "Count", fill = "Shot outcome") +
+  ggthemes::scale_fill_colorblind(labels = c("Save", "Goal")) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+
+---
+
+## Reminder about cross-validation in sports problems
+
+__Cross-validation__: evaluate a model using _any type of objective function_ based on predictions generated with new data
+
+We could use $K$-fold cross-validation, but how? Just randomly assign shots?
+
+--
+
+#### Need to consider sports context creating dependence between observations
+
+- Repeatedly observe shots within the same game
+
+- Repeatedly observe shots by the same player
+
+- Repeatedly observe shots against the same goalie
+
+Need to avoid __data leakage__ from training to test data in cross-validation
+
+--
+
+One approach: perform $K$-fold cross-validation, but __randomly assign games to folds__
+
+- Assigns shots within the same game to the same fold
+
+_What other options?_
+
+---
+
+## Out-of-sample calibration
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+set.seed(1991)
+game_fold_table <- tibble(game_id = unique(model_nhl_shot_data$game_id)) %>%
+  mutate(game_fold = sample(rep(1:5, length.out = n()), n()))
+
+model_nhl_shot_data <- model_nhl_shot_data %>% 
+  left_join(game_fold_table, by = "game_id")
+
+logit_cv_preds <- 
+  map_dfr(unique(model_nhl_shot_data$game_fold), 
+          function(test_fold) {
+            
+            # Separate test and training data:
+            test_data <- model_nhl_shot_data %>%
+              filter(game_fold == test_fold)
+            train_data <- model_nhl_shot_data %>%
+              filter(game_fold != test_fold)
+            
+            # Train model:
+            logit_model <- glm(is_goal ~ shot_distance, 
+                               data = train_data,family = "binomial")
+            
+            # Return tibble of holdout results:
+            tibble(test_pred_probs = predict(logit_model, newdata = test_data,
+                                             type = "response"),
+                   test_actual = test_data$is_goal,
+                   game_fold = test_fold) 
+          })
+
+logit_cv_preds %>%
+  mutate(bin_pred_prob = round(test_pred_probs / 0.05) * .05) %>%
+  # Group by bin_pred_prob:
+  group_by(bin_pred_prob) %>%
+  # Calculate the calibration results:
+  summarize(n_shots = n(),
+            bin_actual_prob = mean(test_actual),
+            bin_se = sqrt((bin_actual_prob * (1 - bin_actual_prob)) / n_shots),
+            .groups = "drop") %>%
+  mutate(bin_upper = pmin(bin_actual_prob + 2 * bin_se, 1),
+         bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0)) %>%
+  ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
+  geom_point() +
+  geom_point(aes(size = n_shots)) +
+  geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + 
+  #geom_smooth(method = "loess", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, 
+              color = "black", linetype = "dashed") +
+  coord_equal() + 
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of shot attempts",
+       x = "Estimated goal probability",
+       y = "Observed goal frequency") + 
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+```
+
+
+---
+
+## Player evaluation...
+
+Compute sum of expected goals by the player on shots taken as a measure of their offensive shot quality
+
+```{r, echo = FALSE}
+init_logit <- glm(is_goal ~ shot_distance, data = model_nhl_shot_data,
+                  family = "binomial")
+model_nhl_shot_data <- model_nhl_shot_data %>%
+  mutate(xg = init_logit$fitted.values)
+
+model_nhl_shot_data %>%
+  group_by(shooting_player) %>%
+  summarize(total_xg = sum(xg, na.rm = TRUE),
+            ave_xg = mean(xg, na.rm = TRUE),
+            total_g = sum(is_goal, na.rm = TRUE)) %>%
+  slice_max(order_by = total_xg, n = 5)
+
+```
+
+
+--
+
+Look at the difference between the total expected goals and actual goals scored
+
+__Credit that difference to the player__ (i.e., allocate residuals to players)
+
+```{r, echo = FALSE}
+model_nhl_shot_data %>%
+  group_by(shooting_player) %>%
+  summarize(total_xg = sum(xg, na.rm = TRUE),
+            total_g = sum(is_goal, na.rm = TRUE)) %>%
+  mutate(g_xg_diff = total_g - total_xg) %>%
+  slice_max(order_by = g_xg_diff, n = 5)
+```
+
+
+---
+
+## Hierarchical model with player effects
+
+#### We should instead account for players directly in the expected goals model
+
+We have been incorrectly treating each shot attempt as independent!
+
+- We observe multiple shots by the same player, against a number of different goalies (and vice versa)
+
+- Expect the outcome of shots by an individual player against a fixed goalie to be more similar to each other, than the outcome of shots by a different player against that same goalie (and vice versa)
+
+--
+
+#### Repeated measurements in sports motivates the role of using hierarchical models 
+
+$$\log \Big[ \frac{Pr(S_i = 1)}{Pr(S_i = 0 )} \Big] = \beta_0 + P_{p[i]} + G_{g[i]} + \beta_1 \cdot distance_i$$
+
+- _Varying-intercepts_ for both shooting players $P$ and goalies $G$
+
+- $P_{p[i]}$ and $G_{g[i]}$ is to denote which players were taking the shot and the goalie for shot attempt $i$
+
+---
+
+## The importance of pooling
+
+#### Thought experiment:
+
+- You observe two different players, player A and player B
+
+- Player A scores 10 goals on 60 shot attempts
+
+- Player B scores 2 goals on 2 shot attempts
+
+_Which player is better?_
+
+--
+
+We obviously observe more than two players, __we observe a distribution of players__
+
+--
+
+__We can leverage all players' performances to provide a better estimate of an individual player's effect__
+
+- Rather than say player B's goal ability is 100%, _we shrink their rate to the average ability across our players_
+
+- We move away from the average with more shot attempts (for better or worse)
+
+--
+
+We use __pooling__ to estimate separate coefficients for each player, but share information across players to improve our estimation
+
+---
+
+## Hierarchical model with player effects
+
+$$\log \Big[ \frac{Pr(S_i = 1)}{Pr(S_i = 0 )} \Big] = \beta_0 + P_{p[i]} + G_{g[i]} + \beta_1 \cdot distance_i$$
+
+Player-group coefficients each vary __according to their own model__:
+
+$$P_p \sim Normal(0, \tau_P^2)$$
+$$G_g \sim  Normal(0, \tau_G^2)$$
+
+--
+
+Varying intercepts $P_p$ and $G_g$ are __random effects__, versus usual regression $\beta$s called __fixed effects__
+
+--
+
+Use of a probability distribution for the player group intercepts pulls each individual player's coefficient to their group's average of zero, __serves as a form of regularization__
+
+Provides partially pooled estimates for player effects, where those involved in more shot attempts carry more information and will move away from centers of zero
+
+--
+
+Requires estimating each group's variance, denoted by $\tau_P^2$ and $\tau_G^2$
+
+- Reflects the different levels of variation we can see in player effects
+
+---
+
+## Fitting multilevel models with [`lme4`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf)
+
+```{r, warning = FALSE, message = FALSE}
+library(lme4)
+xg_lmer <- glmer(is_goal ~ shot_distance + (1|shooting_player) + (1|goalie_name), 
+                 data = model_nhl_shot_data, family = "binomial")
+summary(xg_lmer)
+```
+
+---
+
+## Out-of-sample calibration improvement?
+
+Need to set `allow.new.levels = TRUE` in `predict` function to handle new players unobserved in test data
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+lmer_cv_preds <- 
+  map_dfr(unique(model_nhl_shot_data$game_fold), 
+          function(test_fold) {
+            
+            # Separate test and training data:
+            test_data <- model_nhl_shot_data %>%
+              filter(game_fold == test_fold)
+            train_data <- model_nhl_shot_data %>%
+              filter(game_fold != test_fold)
+            
+            # Train model:
+            glmer_model <- glmer(is_goal ~ shot_distance +
+                                   (1|shooting_player) +
+                                   (1|goalie_name), 
+                                 data = train_data, family = "binomial")
+            
+            # Return tibble of holdout results:
+            tibble(test_pred_probs = predict(glmer_model, newdata = test_data,
+                                             allow.new.levels = TRUE,
+                                             type = "response"),
+                   test_actual = test_data$is_goal,
+                   game_fold = test_fold) 
+          })
+
+lmer_cv_preds %>%
+  mutate(bin_pred_prob = round(test_pred_probs / 0.05) * .05) %>%
+  # Group by bin_pred_prob:
+  group_by(bin_pred_prob) %>%
+  # Calculate the calibration results:
+  summarize(n_shots = n(),
+            bin_actual_prob = mean(test_actual),
+            bin_se = sqrt((bin_actual_prob * (1 - bin_actual_prob)) / n_shots),
+            .groups = "drop") %>%
+  mutate(bin_upper = pmin(bin_actual_prob + 2 * bin_se, 1),
+         bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0)) %>%
+  ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
+  geom_point(aes(size = n_shots)) +
+  geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + 
+  #geom_smooth(method = "loess", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, 
+              color = "black", linetype = "dashed") +
+  coord_equal() + 
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of shot attempts",
+       x = "Estimated goal probability",
+       y = "Observed goal frequency") + 
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+
+---
+
+## View top players based on random effects
+
+Extract the varying intercepts for each player
+
+```{r}
+xg_player_results <- ranef(xg_lmer)
+```
+
+Who are the top shooters?
+
+```{r}
+shooting_re_results <- xg_player_results$shooting_player %>%
+  as_tibble() %>%
+  mutate(player = rownames(xg_player_results$shooting_player),
+         type = "shooter") %>%
+  rename(intercept = `(Intercept)`)
+shooting_re_results %>%
+  slice_max(intercept, n = 5)
+```
+
+
+---
+
+## Capturing uncertainty via resampling
+
+Our model's player effects are __point estimates__ of player ability
+
+- Naive to think a single coefficient captures all of our understanding of a player's performance
+
+- We want to provide some sense of __uncertainty__ in our estimates
+
+--
+
+We estimated player effects based on a single season...
+
+__What if__ the season played out differently? Lead to different estimates?
+
+--
+
+Simulate seasons via a __resampling process__ (aka __bootstrap__)
+
+- Generate $B$ different seasons of data
+
+- Fit the hierarchical model with players effects to each of the $B$ seasons
+
+- Observe a distribution of player effects across the $B$ seasons
+
+--
+
+_But how do we resample?_
+
+---
+
+## Resampling in sports
+
+Resample shots in a season, but want each of the $B$ resampled seasons to be __realistic__
+
+- Want to resample at a level that preserves the structure of seasons and play within games
+
+- Also want to think about where we observe variability... __there is no variability in a team's regular season schedule__
+
+--
+
+We expect variability in what happens within a game if two teams play each other multiple times
+
+--
+
+One approach: within each game, __resample the 3 periods of regulation__
+
+- Preserve typical number of line substitutions
+
+- Ensure our simulated seasons display realistic game flows
+
+- Preserve any possible dependencies within a single period of play
+
+---
+
+## Distribution of top 10 shooting players
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+bootstrap_player_effects <- read_csv("expected_goals/data/boot_xg_player_effects.csv")
+player_sim_summary <- bootstrap_player_effects %>%
+  group_by(player, type) %>%
+  summarize(med_intercept = median(intercept, na.rm = TRUE),
+            n_sims = n(),
+            .groups = "drop")
+
+top_shooters <- player_sim_summary %>%
+  filter(type == "shooter") %>%
+  slice_max(order_by = med_intercept, n = 10) %>%
+  mutate(player = fct_reorder(player, med_intercept))
+
+best_goalies <- player_sim_summary %>%
+  filter(type == "goalie") %>%
+  slice_min(order_by = med_intercept, n = 10) %>%
+  mutate(player = fct_reorder(player, med_intercept))
+
+library(ggridges)
+
+# First for shooters:
+bootstrap_player_effects %>%
+  filter(player %in% top_shooters$player) %>%
+  mutate(player = factor(player, levels = levels(top_shooters$player))) %>%
+  ggplot(aes(x = intercept, y = player)) +
+  geom_density_ridges(quantile_lines = TRUE,
+                      quantiles = 0.5,
+                      rel_min_height = 0.01) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
+  labs(x = "Shooting player varying intercept", y = "Player name") +
+  theme_bw()
+
+```
+
+
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s6_bootstrap_xg_player_effects.R) to view the code to bootstrap player effects
+
+---
+
+## Distribution of top 10 goalies
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+bootstrap_player_effects %>%
+  filter(player %in% best_goalies$player) %>%
+  mutate(player = factor(player, levels = levels(best_goalies$player))) %>%
+  ggplot(aes(x = intercept, y = player)) +
+  geom_density_ridges(quantile_lines = TRUE,
+                      quantiles = 0.5,
+                      rel_min_height = 0.01) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
+  labs(x = "Goalie varying intercept", y = "Player name") +
+  theme_bw()
+
+```
+
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s6_bootstrap_xg_player_effects.R) to view the code to bootstrap player effects
+
+---
+
+# Recap
+
+#### Covered basics of building an expected goals model and using it for player evaluation
+
+#### Benefits of using a hierarchical model to estimate player effects with pooling
+
+#### Convey uncertainty in estimates via resampling to simulate seasons of performance
+
+--
+
+__Lessons from today apply across sports, not just hockey!__
+
+- I know nothing about hockey, [but basically did this for football](https://arxiv.org/pdf/1802.00998.pdf)
+
+--
+
+Access code for all steps here: https://github.com/ryurko/intro-sports-analytics-research
+
+Interested in regularized adjusted plus-minus (RAPM) models? [Read this paper](https://sciendo.com/article/10.2478/ijcss-2019-0001)
+

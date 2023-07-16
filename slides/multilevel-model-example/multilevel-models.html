@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Multilevel models</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Professor Yurko" />
+    <script src="multilevel-models_files/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Multilevel models
+]
+.subtitle[
+## An introduction with expected goals
+]
+.author[
+### Professor Yurko
+]
+.date[
+### July 17th, 2023
+]
+
+---
+
+
+
+
+
+
+## Expected Goals
+
+__Expected Goals__ (aka _xG_) represents quality of a shot attempt across variety of sports
+
+- Used in hockey, soccer, basketball, lacross, etc.
+
+- Motivation: likelihood of a successful shot attempt is dependent on variety of information such as distance, angle, defense
+
+- i.e., _not all shots are created equal_
+
+--
+
+Consider random variable `\(S\)`, where `\(S = 1\)` is successful shot attempt (0 is not)
+
+Expected value (EV) for a shot attempt worth `\(V\)` points is,
+
+`$$EV = V \cdot Pr(S = 1 | \mathbf{x})$$`
+#### We need a reliable estimate for goal scoring probability `\(\widehat{Pr}(S = 1| x)\)`
+
+--
+
+_So what should we do?_
+
+---
+
+## NHL shot data example
+
+Used [hockeyR package](https://hockeyr.netlify.app/) to construct dataset of shots [available here](https://data.scorenetwork.org/hockey/nhl-shots.html)
+
+
+```
+## # A tibble: 71,089 × 11
+##       game_id period shooting_…¹ shoot…² goali…³ goali…⁴ x_fixed y_fixed shot_…⁵
+##         &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;       &lt;chr&gt;   &lt;chr&gt;   &lt;chr&gt;     &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
+##  1 2021020001      1 Steven.Sta… Tampa … Trista… Pittsb…      61     -32    42.5
+##  2 2021020001      1 Brock.McGi… Pittsb… Andrei… Tampa …     -65      19    30.6
+##  3 2021020001      1 Jan.Rutta   Tampa … Trista… Pittsb…      -8     -27   101. 
+##  4 2021020001      1 Danton.Hei… Pittsb… Andrei… Tampa …     -60      -4    29.3
+##  5 2021020001      1 Ondrej.Pal… Tampa … Trista… Pittsb…      63       4    26.3
+##  6 2021020001      1 Mark.Fried… Pittsb… Andrei… Tampa …     -63     -33    42  
+##  7 2021020001      1 Dominik.Si… Pittsb… Andrei… Tampa …     -61     -10    29.7
+##  8 2021020001      1 Victor.Hed… Tampa … Trista… Pittsb…      64      31    39.8
+##  9 2021020001      1 Bryan.Rust  Pittsb… Andrei… Tampa …     -75      -9    16.6
+## 10 2021020001      1 Drew.O'Con… Pittsb… Andrei… Tampa …     -73      12    20  
+## # … with 71,079 more rows, 2 more variables: shot_angle &lt;dbl&gt;, is_goal &lt;dbl&gt;,
+## #   and abbreviated variable names ¹​shooting_player, ²​shooting_team,
+## #   ³​goalie_name, ⁴​goalie_team, ⁵​shot_distance
+```
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s0_get_nhl_shot_data.R) to view pre-processing code
+
+---
+
+## Logistic regression
+
+Use logistic regression to estimate goal probability _given_ shot distance:
+
+`$$\log \Big[ \frac{Pr(S = 1 |\ distance)}{Pr(S = 0 |\ distance)} \Big] = \beta_0 + \beta_1 \cdot distance$$`
+
+--
+
+&lt;img src="multilevel-models_files/figure-html/unnamed-chunk-2-1.png" width="100%" /&gt;
+
+
+---
+
+## Reminder about cross-validation in sports problems
+
+__Cross-validation__: evaluate a model using _any type of objective function_ based on predictions generated with new data
+
+We could use `\(K\)`-fold cross-validation, but how? Just randomly assign shots?
+
+--
+
+#### Need to consider sports context creating dependence between observations
+
+- Repeatedly observe shots within the same game
+
+- Repeatedly observe shots by the same player
+
+- Repeatedly observe shots against the same goalie
+
+Need to avoid __data leakage__ from training to test data in cross-validation
+
+--
+
+One approach: perform `\(K\)`-fold cross-validation, but __randomly assign games to folds__
+
+- Assigns shots within the same game to the same fold
+
+_What other options?_
+
+---
+
+## Out-of-sample calibration
+
+&lt;img src="multilevel-models_files/figure-html/unnamed-chunk-3-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+---
+
+## Player evaluation...
+
+Compute sum of expected goals by the player on shots taken as a measure of their offensive shot quality
+
+
+```
+## # A tibble: 5 × 4
+##   shooting_player  total_xg ave_xg total_g
+##   &lt;chr&gt;               &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 Connor.McDavid       36.9 0.133       38
+## 2 Auston.Matthews      29.9 0.106       46
+## 3 Zach.Hyman           27.7 0.128       27
+## 4 Nathan.MacKinnon     26.7 0.0915      31
+## 5 Jake.Guentzel        26.4 0.122       32
+```
+
+
+--
+
+Look at the difference between the total expected goals and actual goals scored
+
+__Credit that difference to the player__ (i.e., allocate residuals to players)
+
+
+```
+## # A tibble: 5 × 4
+##   shooting_player total_xg total_g g_xg_diff
+##   &lt;chr&gt;              &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;
+## 1 Steven.Stamkos      16.3      36      19.7
+## 2 Auston.Matthews     29.9      46      16.1
+## 3 Filip.Forsberg      17.5      30      12.5
+## 4 Ryan.Hartman        16.4      28      11.6
+## 5 Kirill.Kaprizov     19.5      31      11.5
+```
+
+
+---
+
+## Hierarchical model with player effects
+
+#### We should instead account for players directly in the expected goals model
+
+We have been incorrectly treating each shot attempt as independent!
+
+- We observe multiple shots by the same player, against a number of different goalies (and vice versa)
+
+- Expect the outcome of shots by an individual player against a fixed goalie to be more similar to each other, than the outcome of shots by a different player against that same goalie (and vice versa)
+
+--
+
+#### Repeated measurements in sports motivates the role of using hierarchical models 
+
+`$$\log \Big[ \frac{Pr(S_i = 1)}{Pr(S_i = 0 )} \Big] = \beta_0 + P_{p[i]} + G_{g[i]} + \beta_1 \cdot distance_i$$`
+
+- _Varying-intercepts_ for both shooting players `\(P\)` and goalies `\(G\)`
+
+- `\(P_{p[i]}\)` and `\(G_{g[i]}\)` is to denote which players were taking the shot and the goalie for shot attempt `\(i\)`
+
+---
+
+## The importance of pooling
+
+#### Thought experiment:
+
+- You observe two different players, player A and player B
+
+- Player A scores 10 goals on 60 shot attempts
+
+- Player B scores 2 goals on 2 shot attempts
+
+_Which player is better?_
+
+--
+
+We obviously observe more than two players, __we observe a distribution of players__
+
+--
+
+__We can leverage all players' performances to provide a better estimate of an individual player's effect__
+
+- Rather than say player B's goal ability is 100%, _we shrink their rate to the average ability across our players_
+
+- We move away from the average with more shot attempts (for better or worse)
+
+--
+
+We use __pooling__ to estimate separate coefficients for each player, but share information across players to improve our estimation
+
+---
+
+## Hierarchical model with player effects
+
+`$$\log \Big[ \frac{Pr(S_i = 1)}{Pr(S_i = 0 )} \Big] = \beta_0 + P_{p[i]} + G_{g[i]} + \beta_1 \cdot distance_i$$`
+
+Player-group coefficients each vary __according to their own model__:
+
+`$$P_p \sim Normal(0, \tau_P^2)$$`
+`$$G_g \sim  Normal(0, \tau_G^2)$$`
+
+--
+
+Varying intercepts `\(P_p\)` and `\(G_g\)` are __random effects__, versus usual regression `\(\beta\)`s called __fixed effects__
+
+--
+
+Use of a probability distribution for the player group intercepts pulls each individual player's coefficient to their group's average of zero, __serves as a form of regularization__
+
+Provides partially pooled estimates for player effects, where those involved in more shot attempts carry more information and will move away from centers of zero
+
+--
+
+Requires estimating each group's variance, denoted by `\(\tau_P^2\)` and `\(\tau_G^2\)`
+
+- Reflects the different levels of variation we can see in player effects
+
+---
+
+## Fitting multilevel models with [`lme4`](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf)
+
+
+```r
+library(lme4)
+xg_lmer &lt;- glmer(is_goal ~ shot_distance + (1|shooting_player) + (1|goalie_name), 
+                 data = model_nhl_shot_data, family = "binomial")
+summary(xg_lmer)
+```
+
+```
+## Generalized linear mixed model fit by maximum likelihood (Laplace
+##   Approximation) [glmerMod]
+##  Family: binomial  ( logit )
+## Formula: is_goal ~ shot_distance + (1 | shooting_player) + (1 | goalie_name)
+##    Data: model_nhl_shot_data
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##  38521.9  38558.6 -19257.0  38513.9    71085 
+## 
+## Scaled residuals: 
+##    Min     1Q Median     3Q    Max 
+## -0.673 -0.367 -0.247 -0.161 92.202 
+## 
+## Random effects:
+##  Groups          Name        Variance Std.Dev.
+##  shooting_player (Intercept) 0.05711  0.2390  
+##  goalie_name     (Intercept) 0.01010  0.1005  
+## Number of obs: 71089, groups:  shooting_player, 981; goalie_name, 120
+## 
+## Fixed effects:
+##                 Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)   -1.1063040  0.0310535  -35.63   &lt;2e-16 ***
+## shot_distance -0.0462897  0.0009649  -47.97   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Correlation of Fixed Effects:
+##             (Intr)
+## shot_distnc -0.711
+## optimizer (Nelder_Mead) convergence code: 0 (OK)
+## Model is nearly unidentifiable: very large eigenvalue
+##  - Rescale variables?
+```
+
+---
+
+## Out-of-sample calibration improvement?
+
+Need to set `allow.new.levels = TRUE` in `predict` function to handle new players unobserved in test data
+
+&lt;img src="multilevel-models_files/figure-html/unnamed-chunk-7-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+---
+
+## View top players based on random effects
+
+Extract the varying intercepts for each player
+
+
+```r
+xg_player_results &lt;- ranef(xg_lmer)
+```
+
+Who are the top shooters?
+
+
+```r
+shooting_re_results &lt;- xg_player_results$shooting_player %&gt;%
+  as_tibble() %&gt;%
+  mutate(player = rownames(xg_player_results$shooting_player),
+         type = "shooter") %&gt;%
+  rename(intercept = `(Intercept)`)
+shooting_re_results %&gt;%
+  slice_max(intercept, n = 5)
+```
+
+```
+## # A tibble: 5 × 3
+##   intercept player          type   
+##       &lt;dbl&gt; &lt;chr&gt;           &lt;chr&gt;  
+## 1     0.595 Steven.Stamkos  shooter
+## 2     0.381 Mitchell.Marner shooter
+## 3     0.380 Filip.Forsberg  shooter
+## 4     0.376 Auston.Matthews shooter
+## 5     0.368 Patrik.Laine    shooter
+```
+
+
+---
+
+## Capturing uncertainty via resampling
+
+Our model's player effects are __point estimates__ of player ability
+
+- Naive to think a single coefficient captures all of our understanding of a player's performance
+
+- We want to provide some sense of __uncertainty__ in our estimates
+
+--
+
+We estimated player effects based on a single season...
+
+__What if__ the season played out differently? Lead to different estimates?
+
+--
+
+Simulate seasons via a __resampling process__ (aka __bootstrap__)
+
+- Generate `\(B\)` different seasons of data
+
+- Fit the hierarchical model with players effects to each of the `\(B\)` seasons
+
+- Observe a distribution of player effects across the `\(B\)` seasons
+
+--
+
+_But how do we resample?_
+
+---
+
+## Resampling in sports
+
+Resample shots in a season, but want each of the `\(B\)` resampled seasons to be __realistic__
+
+- Want to resample at a level that preserves the structure of seasons and play within games
+
+- Also want to think about where we observe variability... __there is no variability in a team's regular season schedule__
+
+--
+
+We expect variability in what happens within a game if two teams play each other multiple times
+
+--
+
+One approach: within each game, __resample the 3 periods of regulation__
+
+- Preserve typical number of line substitutions
+
+- Ensure our simulated seasons display realistic game flows
+
+- Preserve any possible dependencies within a single period of play
+
+---
+
+## Distribution of top 10 shooting players
+
+&lt;img src="multilevel-models_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s6_bootstrap_xg_player_effects.R) to view the code to bootstrap player effects
+
+---
+
+## Distribution of top 10 goalies
+
+&lt;img src="multilevel-models_files/figure-html/unnamed-chunk-11-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+
+[Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s6_bootstrap_xg_player_effects.R) to view the code to bootstrap player effects
+
+---
+
+# Recap
+
+#### Covered basics of building an expected goals model and using it for player evaluation
+
+#### Benefits of using a hierarchical model to estimate player effects with pooling
+
+#### Convey uncertainty in estimates via resampling to simulate seasons of performance
+
+--
+
+__Lessons from today apply across sports, not just hockey!__
+
+- I know nothing about hockey, [but basically did this for football](https://arxiv.org/pdf/1802.00998.pdf)
+
+--
+
+Access code for all steps here: https://github.com/ryurko/intro-sports-analytics-research
+
+Interested in regularized adjusted plus-minus (RAPM) models? [Read this paper](https://sciendo.com/article/10.2478/ijcss-2019-0001)
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current%",
+"highlightStyle": "github",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
