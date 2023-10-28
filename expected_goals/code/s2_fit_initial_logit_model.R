@@ -21,20 +21,20 @@ summary(init_logit)
 # 
 # Deviance Residuals: 
 #   Min       1Q   Median       3Q      Max  
-# -0.7563  -0.4989  -0.3353  -0.2191   4.2235  
+# -0.7296  -0.5063  -0.3497  -0.2319   4.2716  
 # 
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)   -1.057338   0.031326  -33.75   <2e-16 ***
-#   shot_distance -0.047936   0.001181  -40.60   <2e-16 ***
+# (Intercept)   -1.0863098  0.0249260  -43.58   <2e-16 ***
+#   shot_distance -0.0460831  0.0009384  -49.11   <2e-16 ***
 #   ---
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 # 
 # (Dispersion parameter for binomial family taken to be 1)
 # 
-# Null deviance: 26329  on 45690  degrees of freedom
-# Residual deviance: 24111  on 45689  degrees of freedom
-# AIC: 24115
+# Null deviance: 41818  on 71088  degrees of freedom
+# Residual deviance: 38587  on 71087  degrees of freedom
+# AIC: 38591
 # 
 # Number of Fisher Scoring iterations: 6
 
@@ -44,11 +44,12 @@ model_nhl_shot_data <- model_nhl_shot_data %>%
 
 shot_dist_prob_plot <- model_nhl_shot_data %>%
   ggplot(aes(x = shot_distance)) +
-  geom_line(aes(y = xg), 
-            color = "blue") +
-  geom_point(aes(y = is_goal), 
+  geom_jitter(aes(y = is_goal), 
+              width = 0, height = .01,
              size = .5, alpha = 0.15,
              color = "darkorange") +
+  geom_line(aes(y = xg), 
+            color = "blue") +
   labs(x = "Shot distance (in feet)",
        y = "Predicted probability of goal (aka expected goals)") +
   theme_bw()

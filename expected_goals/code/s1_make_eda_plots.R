@@ -10,10 +10,18 @@ model_nhl_shot_data <-
 # Plot all shots ----------------------------------------------------------
 
 # Raw locations
-model_nhl_shot_data %>%
+shot_scatter_plot <- model_nhl_shot_data %>%
   ggplot(aes(x = x_fixed, y = y_fixed, color = as.factor(is_goal))) +
   geom_point(alpha = .25) +
-  theme_bw()
+  labs(x = "x coordinate", y = "y coordinate", 
+       color = "Shot outcome") +
+  ggthemes::scale_color_colorblind(labels = c("Save", "Goal")) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+cowplot::save_plot("expected_goals/figures/shot_scatter.png",
+                   shot_scatter_plot)
 
 # Distance histogram by outcome
 shot_dist_plot <- model_nhl_shot_data %>%

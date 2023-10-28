@@ -88,6 +88,9 @@ write_csv(bootstrap_player_effects,
 
 # Compute summaries of sims and view distributions ------------------------
 
+bootstrap_player_effects <-
+  read_csv("expected_goals/data/boot_xg_player_effects.csv")
+
 player_sim_summary <- bootstrap_player_effects %>%
   group_by(player, type) %>%
   summarize(med_intercept = median(intercept, na.rm = TRUE),
@@ -117,7 +120,9 @@ shooting_player_distr_plot <- bootstrap_player_effects %>%
                       rel_min_height = 0.01) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
   labs(x = "Shooting player varying intercept", y = "Player name") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.y = element_text(size = 16),
+        axis.title.y = element_blank())
 
 cowplot::save_plot("expected_goals/figures/shooting_player_distr_plot.png",
                    shooting_player_distr_plot, base_height = 6)
@@ -132,7 +137,10 @@ goalie_distr_plot <- bootstrap_player_effects %>%
                       rel_min_height = 0.01) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "darkred") +
   labs(x = "Goalie varying intercept", y = "Player name") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.y = element_text(size = 16),
+        axis.title.y = element_blank())
+
 
 cowplot::save_plot("expected_goals/figures/goalie_distr_plot.png",
                    goalie_distr_plot, base_height = 6)
