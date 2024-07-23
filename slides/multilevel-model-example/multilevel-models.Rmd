@@ -3,7 +3,7 @@ title: "Multilevel models"
 subtitle: "An introduction with expected goals"  
 author: 
   - "Professor Yurko"
-date: 'July 17th, 2023'
+date: 'July 22nd, 2024'
 output:
   xaringan::moon_reader:
     css: xaringan-themer.css
@@ -13,6 +13,7 @@ output:
       highlightLines: true
       ratio: 16:9
       countIncrementalSlides: false
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
@@ -530,9 +531,5 @@ __Lessons from today apply across sports, not just hockey!__
 
 - I know nothing about hockey, [but basically did this for football](https://arxiv.org/pdf/1802.00998.pdf)
 
---
-
 Access code for all steps here: https://github.com/ryurko/intro-sports-analytics-research
-
-Interested in regularized adjusted plus-minus (RAPM) models? [Read this paper](https://sciendo.com/article/10.2478/ijcss-2019-0001)
 

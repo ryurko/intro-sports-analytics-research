@@ -21,7 +21,7 @@ class: center, middle, inverse, title-slide
 ### Professor Yurko
 ]
 .date[
-### July 17th, 2023
+### July 22nd, 2024
 ]
 
 ---
@@ -63,21 +63,21 @@ Used [hockeyR package](https://hockeyr.netlify.app/) to construct dataset of sho
 
 ```
 ## # A tibble: 71,089 × 11
-##       game_id period shooting_…¹ shoot…² goali…³ goali…⁴ x_fixed y_fixed shot_…⁵
-##         &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;       &lt;chr&gt;   &lt;chr&gt;   &lt;chr&gt;     &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
-##  1 2021020001      1 Steven.Sta… Tampa … Trista… Pittsb…      61     -32    42.5
-##  2 2021020001      1 Brock.McGi… Pittsb… Andrei… Tampa …     -65      19    30.6
-##  3 2021020001      1 Jan.Rutta   Tampa … Trista… Pittsb…      -8     -27   101. 
-##  4 2021020001      1 Danton.Hei… Pittsb… Andrei… Tampa …     -60      -4    29.3
-##  5 2021020001      1 Ondrej.Pal… Tampa … Trista… Pittsb…      63       4    26.3
-##  6 2021020001      1 Mark.Fried… Pittsb… Andrei… Tampa …     -63     -33    42  
-##  7 2021020001      1 Dominik.Si… Pittsb… Andrei… Tampa …     -61     -10    29.7
-##  8 2021020001      1 Victor.Hed… Tampa … Trista… Pittsb…      64      31    39.8
-##  9 2021020001      1 Bryan.Rust  Pittsb… Andrei… Tampa …     -75      -9    16.6
-## 10 2021020001      1 Drew.O'Con… Pittsb… Andrei… Tampa …     -73      12    20  
-## # … with 71,079 more rows, 2 more variables: shot_angle &lt;dbl&gt;, is_goal &lt;dbl&gt;,
-## #   and abbreviated variable names ¹​shooting_player, ²​shooting_team,
-## #   ³​goalie_name, ⁴​goalie_team, ⁵​shot_distance
+##     game_id period shooting_player shooting_team goalie_name goalie_team x_fixed
+##       &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;           &lt;chr&gt;         &lt;chr&gt;       &lt;chr&gt;         &lt;dbl&gt;
+##  1   2.02e9      1 Steven.Stamkos  Tampa Bay Li… Tristan.Ja… Pittsburgh…      61
+##  2   2.02e9      1 Brock.McGinn    Pittsburgh P… Andrei.Vas… Tampa Bay …     -65
+##  3   2.02e9      1 Jan.Rutta       Tampa Bay Li… Tristan.Ja… Pittsburgh…      -8
+##  4   2.02e9      1 Danton.Heinen   Pittsburgh P… Andrei.Vas… Tampa Bay …     -60
+##  5   2.02e9      1 Ondrej.Palat    Tampa Bay Li… Tristan.Ja… Pittsburgh…      63
+##  6   2.02e9      1 Mark.Friedman   Pittsburgh P… Andrei.Vas… Tampa Bay …     -63
+##  7   2.02e9      1 Dominik.Simon   Pittsburgh P… Andrei.Vas… Tampa Bay …     -61
+##  8   2.02e9      1 Victor.Hedman   Tampa Bay Li… Tristan.Ja… Pittsburgh…      64
+##  9   2.02e9      1 Bryan.Rust      Pittsburgh P… Andrei.Vas… Tampa Bay …     -75
+## 10   2.02e9      1 Drew.O'Connor   Pittsburgh P… Andrei.Vas… Tampa Bay …     -73
+## # ℹ 71,079 more rows
+## # ℹ 4 more variables: y_fixed &lt;dbl&gt;, shot_distance &lt;dbl&gt;, shot_angle &lt;dbl&gt;,
+## #   is_goal &lt;dbl&gt;
 ```
 
 [Click here](https://github.com/ryurko/intro-sports-analytics-research/blob/main/expected_goals/code/s0_get_nhl_shot_data.R) to view pre-processing code
@@ -281,7 +281,7 @@ summary(xg_lmer)
 ## 
 ## Fixed effects:
 ##                 Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept)   -1.1063040  0.0310535  -35.63   &lt;2e-16 ***
+## (Intercept)   -1.1063043  0.0310538  -35.62   &lt;2e-16 ***
 ## shot_distance -0.0462897  0.0009649  -47.97   &lt;2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
@@ -428,11 +428,7 @@ __Lessons from today apply across sports, not just hockey!__
 
 - I know nothing about hockey, [but basically did this for football](https://arxiv.org/pdf/1802.00998.pdf)
 
---
-
 Access code for all steps here: https://github.com/ryurko/intro-sports-analytics-research
-
-Interested in regularized adjusted plus-minus (RAPM) models? [Read this paper](https://sciendo.com/article/10.2478/ijcss-2019-0001)
 
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
